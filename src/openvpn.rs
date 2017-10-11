@@ -11,6 +11,16 @@
 
 use nom::*;
 
+/// OpenVPN packet
+#[derive(Debug,PartialEq)]
+pub struct OpenVPNPacket<'a> {
+    pub hdr: OpenVPNHdr,
+    pub msg: Payload<'a>,
+}
+
+/// OpenVPN packet header
+///
+/// TCP and UDP differ only by the presence of the `plen` field.
 #[derive(Debug,PartialEq)]
 pub struct OpenVPNHdr {
     /// Packet length, TCP only
@@ -27,6 +37,14 @@ pub const P_CONTROL_HARD_RESET_SERVER_V2 : u8 = 0x8;
 
 
 #[derive(Debug,PartialEq)]
+pub enum Payload<'a> {
+    Control(PControl<'a>),
+    Ack(PAck<'a>),
+    Data(PData<'a>),
+}
+
+/// Payload for P_CONTROL messages
+#[derive(Debug,PartialEq)]
 pub struct PControl<'a> {
     pub session_id: u64,
     /// 16 or 20 bytes
@@ -39,6 +57,7 @@ pub struct PControl<'a> {
     pub payload: &'a[u8],
 }
 
+/// Payload for P_ACK messages
 #[derive(Debug,PartialEq)]
 pub struct PAck<'a> {
     pub session_id: u64,
@@ -55,11 +74,49 @@ pub struct PAck<'a> {
     pub payload: &'a[u8],
 }
 
+/// Payload for P_DATA messages
+///
+/// Since the payload can be encrypted, do not parse data
 #[derive(Debug,PartialEq)]
 pub struct PData<'a> {
     pub contents: &'a[u8],
 }
 
+
+
+
+
+
+
+/// Parse an OpnVPM packet in TCP
+pub fn parse_openvpn_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
+    do_parse!(i,
+        hdr: parse_openvpn_header_tcp >>
+        msg: flat_map!(take!(hdr.plen.unwrap()),call!(parse_openvpn_msg_payload,hdr.opcode)) >>
+        (
+            OpenVPNPacket{
+                hdr:  hdr,
+                msg: msg,
+            }
+        )
+    )
+}
+
+/// Parse an OpnVPM packet in UDP
+///
+/// Note that this will consume the entire buffer
+pub fn parse_openvpn_udp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
+    do_parse!(i,
+        hdr: parse_openvpn_header_udp >>
+        msg: call!(parse_openvpn_msg_payload,hdr.opcode) >>
+        (
+            OpenVPNPacket{
+                hdr:  hdr,
+                msg: msg,
+            }
+        )
+    )
+}
 
 
 pub fn parse_openvpn_header_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNHdr> {
@@ -76,6 +133,34 @@ pub fn parse_openvpn_header_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNHdr> {
             }
         )
     )
+}
+
+pub fn parse_openvpn_header_udp(i:&[u8]) -> IResult<&[u8],OpenVPNHdr> {
+    do_parse!(i,
+        opk: bits!(
+            pair!(take_bits!(u8,5), take_bits!(u8,3))
+        ) >>
+        (
+            OpenVPNHdr{
+                plen: None,
+                opcode: opk.0,
+                key: opk.1,
+            }
+        )
+    )
+}
+
+pub fn parse_openvpn_msg_payload(i:&[u8], msg_type:u8) -> IResult<&[u8],Payload> {
+    match msg_type {
+        P_CONTROL_HARD_RESET_CLIENT_V2 |
+        P_CONTROL_HARD_RESET_SERVER_V2 => {
+            map!(i, parse_openvpn_msg_pcontrol, |x| Payload::Control(x))
+        },
+        P_ACK_V1 => {
+            map!(i, parse_openvpn_msg_pack, |x| Payload::Ack(x))
+        }
+        _ => map!(i, rest,|x| Payload::Data(PData{contents:x})),
+    }
 }
 
 pub fn parse_openvpn_msg_pcontrol(i:&[u8]) -> IResult<&[u8],PControl> {
