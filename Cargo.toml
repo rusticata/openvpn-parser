@@ -5,4 +5,3 @@ authors = ["Pierre Chifflier <chifflier@wzdftpd.net>"]
 
 [dependencies]
 nom = "3.0"
-tls-parser = "0.1"
