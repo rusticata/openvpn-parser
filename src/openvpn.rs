@@ -29,13 +29,18 @@ pub struct OpenVPNHdr {
     pub key: u8,
 }
 
+pub const P_CONTROL_HARD_RESET_CLIENT_V1 : u8 = 0x1;
+pub const P_CONTROL_HARD_RESET_SERVER_V1 : u8 = 0x2;
+pub const P_CONTROL_SOFT_RESET_V1 : u8 = 0x3;
 pub const P_CONTROL_V1 : u8 = 0x4;
 pub const P_ACK_V1 : u8 = 0x5;
-
+pub const P_DATA_V1 : u8 = 0x6;
 pub const P_CONTROL_HARD_RESET_CLIENT_V2 : u8 = 0x7;
 pub const P_CONTROL_HARD_RESET_SERVER_V2 : u8 = 0x8;
+pub const P_DATA_V2 : u8 = 0x9;
 
 
+/// Payload for OpenVPN data
 #[derive(Debug,PartialEq)]
 pub enum Payload<'a> {
     Control(PControl<'a>),
@@ -53,7 +58,10 @@ pub struct PControl<'a> {
     pub packet_id: u32,
     /// Optional part of replay protection
     pub net_time: u32,
+    pub msg_ar_len: u8,
+    pub msg_ar: Option<Vec<u32>>,
     pub msg_packet_id: u32,
+    pub remote_session_id: Option<u64>,
     pub payload: &'a[u8],
 }
 
@@ -68,10 +76,8 @@ pub struct PAck<'a> {
     /// Optional part of replay protection
     pub net_time: u32,
     pub msg_ar_len: u8,
-    pub msg_ar: Option<&'a[u8]>,
-    pub remote_id: Option<u64>,
-    pub msg_packet_id: u32,
-    pub payload: &'a[u8],
+    pub msg_ar: Option<Vec<u32>>,
+    pub remote_session_id: Option<u64>,
 }
 
 /// Payload for P_DATA messages
@@ -92,7 +98,12 @@ pub struct PData<'a> {
 pub fn parse_openvpn_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
     do_parse!(i,
         hdr: parse_openvpn_header_tcp >>
-        msg: flat_map!(take!(hdr.plen.unwrap()),call!(parse_openvpn_msg_payload,hdr.opcode)) >>
+        // length includes header (minus plen field)
+        // substract 1 (opcode + key)
+        error_if!(hdr.plen == None, error_code!(ErrorKind::Custom(128))) >>
+        plen: value!(hdr.plen.unwrap()) >>
+        error_if!(plen < 2, error_code!(ErrorKind::Custom(128))) >>
+        msg: flat_map!(take!(plen-1),call!(parse_openvpn_msg_payload,hdr.opcode)) >>
         (
             OpenVPNPacket{
                 hdr:  hdr,
@@ -152,6 +163,7 @@ pub fn parse_openvpn_header_udp(i:&[u8]) -> IResult<&[u8],OpenVPNHdr> {
 
 pub fn parse_openvpn_msg_payload(i:&[u8], msg_type:u8) -> IResult<&[u8],Payload> {
     match msg_type {
+        P_CONTROL_V1 |
         P_CONTROL_HARD_RESET_CLIENT_V2 |
         P_CONTROL_HARD_RESET_SERVER_V2 => {
             map!(i, parse_openvpn_msg_pcontrol, |x| Payload::Control(x))
@@ -169,6 +181,9 @@ pub fn parse_openvpn_msg_pcontrol(i:&[u8]) -> IResult<&[u8],PControl> {
         hmac: take!(20) >>
         pid:  be_u32 >>
         tm:   be_u32 >>
+        arl:  be_u8 >>
+        ar:   cond!(arl > 0, count!(be_u32,arl as usize)) >>
+        rsid: cond!(arl > 0, be_u64) >>
         mid:  be_u32 >>
         p:    rest >>
         (
@@ -177,6 +192,9 @@ pub fn parse_openvpn_msg_pcontrol(i:&[u8]) -> IResult<&[u8],PControl> {
                 hmac: hmac,
                 packet_id: pid,
                 net_time: tm,
+                msg_ar_len: arl,
+                msg_ar: ar,
+                remote_session_id: rsid,
                 msg_packet_id: mid,
                 payload: p,
             }
@@ -191,9 +209,8 @@ pub fn parse_openvpn_msg_pack(i:&[u8]) -> IResult<&[u8],PAck> {
         pid:  be_u32 >>
         tm:   be_u32 >>
         arl:  be_u8 >>
-        ar:   cond!(arl > 0, take!(4 * arl)) >>
-        mid:  be_u32 >>
-        p:    rest >>
+        ar:   cond!(arl > 0, count!(be_u32,arl as usize)) >>
+        rsid: cond!(arl > 0, be_u64) >>
         (
             PAck{
                 session_id: sid,
@@ -202,9 +219,7 @@ pub fn parse_openvpn_msg_pack(i:&[u8]) -> IResult<&[u8],PAck> {
                 net_time: tm,
                 msg_ar_len: arl,
                 msg_ar: ar,
-                remote_id: None,
-                msg_packet_id: mid,
-                payload: p,
+                remote_session_id: rsid,
             }
         )
     )
