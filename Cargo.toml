@@ -1,6 +1,6 @@
 [package]
 description = "Parser for the OpenVPN protocol"
-license = "LGPL-2.1+"
+license = "MIT/Apache-2.0"
 keywords = ["OpenVPN","protocol","parser","nom"]
 homepage = "https://github.com/rusticata/openvpn-parser"
 repository = "https://github.com/rusticata/openvpn-parser.git"
