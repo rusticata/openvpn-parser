@@ -100,9 +100,9 @@ pub fn parse_openvpn_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
         hdr: parse_openvpn_header_tcp >>
         // length includes header (minus plen field)
         // substract 1 (opcode + key)
-        error_if!(hdr.plen == None, error_code!(ErrorKind::Custom(128))) >>
+        error_if!(hdr.plen == None, ErrorKind::Custom(128)) >>
         plen: value!(hdr.plen.unwrap()) >>
-        error_if!(plen < 2, error_code!(ErrorKind::Custom(128))) >>
+        error_if!(plen < 2, ErrorKind::Custom(128)) >>
         msg: flat_map!(take!(plen-1),call!(parse_openvpn_msg_payload,hdr.opcode)) >>
         (
             OpenVPNPacket{
