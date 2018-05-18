@@ -97,13 +97,13 @@ pub struct PData<'a> {
 /// Parse an OpnVPM packet in TCP
 pub fn parse_openvpn_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
     do_parse!(i,
-        hdr: parse_openvpn_header_tcp >>
+        hdr:  parse_openvpn_header_tcp >>
         // length includes header (minus plen field)
         // substract 1 (opcode + key)
-        error_if!(hdr.plen == None, ErrorKind::Custom(128)) >>
+              error_if!(hdr.plen == None, ErrorKind::Custom(128)) >>
         plen: value!(hdr.plen.unwrap()) >>
-        error_if!(plen < 2, ErrorKind::Custom(128)) >>
-        msg: flat_map!(take!(plen-1),call!(parse_openvpn_msg_payload,hdr.opcode)) >>
+              error_if!(plen < 2, ErrorKind::Custom(128)) >>
+        msg:  flat_map!(take!(plen-1),call!(parse_openvpn_msg_payload,hdr.opcode)) >>
         (
             OpenVPNPacket{
                 hdr:  hdr,
