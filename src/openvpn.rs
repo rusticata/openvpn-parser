@@ -6,6 +6,7 @@
 //! Closest thing to specifications:
 //!
 //! - https://openvpn.net/index.php/open-source/documentation/security-overview.html
+//! - http://ipseclab.eit.lth.se/tiki-index.php?page=6.+OpenVPN
 //! - OpenVPN source code
 //! - OpenVPN wireshark parser
 
@@ -163,6 +164,9 @@ pub fn parse_openvpn_header_udp(i:&[u8]) -> IResult<&[u8],OpenVPNHdr> {
 
 pub fn parse_openvpn_msg_payload(i:&[u8], msg_type:u8) -> IResult<&[u8],Payload> {
     match msg_type {
+        P_CONTROL_HARD_RESET_CLIENT_V1 |
+        P_CONTROL_HARD_RESET_SERVER_V1 |
+        P_CONTROL_SOFT_RESET_V1 |
         P_CONTROL_V1 |
         P_CONTROL_HARD_RESET_CLIENT_V2 |
         P_CONTROL_HARD_RESET_SERVER_V2 => {
@@ -171,7 +175,11 @@ pub fn parse_openvpn_msg_payload(i:&[u8], msg_type:u8) -> IResult<&[u8],Payload>
         P_ACK_V1 => {
             map!(i, parse_openvpn_msg_pack, |x| Payload::Ack(x))
         }
-        _ => map!(i, rest,|x| Payload::Data(PData{contents:x})),
+        P_DATA_V1 |
+        P_DATA_V2 => {
+            map!(i, rest,|x| Payload::Data(PData{contents:x}))
+        }
+        _ => Err(::nom::Err::Error(error_position!(i, ::nom::ErrorKind::Tag)))
     }
 }
 
