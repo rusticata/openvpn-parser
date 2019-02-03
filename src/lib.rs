@@ -4,7 +4,7 @@
         unstable_features,
         /*unused_import_braces, */unused_qualifications)]
 
-#[macro_use] extern crate nom;
+extern crate nom;
 #[macro_use] extern crate rusticata_macros;
 
 pub mod openvpn;
