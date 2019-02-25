@@ -26,19 +26,26 @@ pub struct OpenVPNPacket<'a> {
 pub struct OpenVPNHdr {
     /// Packet length, TCP only
     pub plen: Option<u16>,
-    pub opcode: u8,
+    pub opcode: Opcode,
     pub key: u8,
 }
 
-pub const P_CONTROL_HARD_RESET_CLIENT_V1 : u8 = 0x1;
-pub const P_CONTROL_HARD_RESET_SERVER_V1 : u8 = 0x2;
-pub const P_CONTROL_SOFT_RESET_V1 : u8 = 0x3;
-pub const P_CONTROL_V1 : u8 = 0x4;
-pub const P_ACK_V1 : u8 = 0x5;
-pub const P_DATA_V1 : u8 = 0x6;
-pub const P_CONTROL_HARD_RESET_CLIENT_V2 : u8 = 0x7;
-pub const P_CONTROL_HARD_RESET_SERVER_V2 : u8 = 0x8;
-pub const P_DATA_V2 : u8 = 0x9;
+#[derive(Copy,Clone,PartialEq,Eq)]
+pub struct Opcode(pub u8);
+
+newtype_enum!{
+impl debug Opcode {
+    P_CONTROL_HARD_RESET_CLIENT_V1 = 0x1,
+    P_CONTROL_HARD_RESET_SERVER_V1 = 0x2,
+    P_CONTROL_SOFT_RESET_V1 = 0x3,
+    P_CONTROL_V1 = 0x4,
+    P_ACK_V1 = 0x5,
+    P_DATA_V1 = 0x6,
+    P_CONTROL_HARD_RESET_CLIENT_V2 = 0x7,
+    P_CONTROL_HARD_RESET_SERVER_V2 = 0x8,
+    P_DATA_V2 = 0x9,
+}
+}
 
 
 /// Payload for OpenVPN data
@@ -140,7 +147,7 @@ pub fn parse_openvpn_header_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNHdr> {
         (
             OpenVPNHdr{
                 plen: Some(plen),
-                opcode: opk.0,
+                opcode: Opcode(opk.0),
                 key: opk.1,
             }
         )
@@ -155,28 +162,28 @@ pub fn parse_openvpn_header_udp(i:&[u8]) -> IResult<&[u8],OpenVPNHdr> {
         (
             OpenVPNHdr{
                 plen: None,
-                opcode: opk.0,
+                opcode: Opcode(opk.0),
                 key: opk.1,
             }
         )
     )
 }
 
-pub fn parse_openvpn_msg_payload(i:&[u8], msg_type:u8) -> IResult<&[u8],Payload> {
+pub fn parse_openvpn_msg_payload(i:&[u8], msg_type:Opcode) -> IResult<&[u8],Payload> {
     match msg_type {
-        P_CONTROL_HARD_RESET_CLIENT_V1 |
-        P_CONTROL_HARD_RESET_SERVER_V1 |
-        P_CONTROL_SOFT_RESET_V1 |
-        P_CONTROL_V1 |
-        P_CONTROL_HARD_RESET_CLIENT_V2 |
-        P_CONTROL_HARD_RESET_SERVER_V2 => {
+        Opcode::P_CONTROL_HARD_RESET_CLIENT_V1 |
+        Opcode::P_CONTROL_HARD_RESET_SERVER_V1 |
+        Opcode::P_CONTROL_SOFT_RESET_V1 |
+        Opcode::P_CONTROL_V1 |
+        Opcode::P_CONTROL_HARD_RESET_CLIENT_V2 |
+        Opcode::P_CONTROL_HARD_RESET_SERVER_V2 => {
             map!(i, parse_openvpn_msg_pcontrol, |x| Payload::Control(x))
         },
-        P_ACK_V1 => {
+        Opcode::P_ACK_V1 => {
             map!(i, parse_openvpn_msg_pack, |x| Payload::Ack(x))
         }
-        P_DATA_V1 |
-        P_DATA_V2 => {
+        Opcode::P_DATA_V1 |
+        Opcode::P_DATA_V2 => {
             map!(i, rest,|x| Payload::Data(PData{contents:x}))
         }
         _ => Err(::nom::Err::Error(error_position!(i, ::nom::ErrorKind::Tag)))
