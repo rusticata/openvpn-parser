@@ -177,10 +177,10 @@ pub fn parse_openvpn_msg_payload(i:&[u8], msg_type:Opcode) -> IResult<&[u8],Payl
         Opcode::P_CONTROL_V1 |
         Opcode::P_CONTROL_HARD_RESET_CLIENT_V2 |
         Opcode::P_CONTROL_HARD_RESET_SERVER_V2 => {
-            map!(i, parse_openvpn_msg_pcontrol, |x| Payload::Control(x))
+            map!(i, parse_openvpn_msg_pcontrol, Payload::Control)
         },
         Opcode::P_ACK_V1 => {
-            map!(i, parse_openvpn_msg_pack, |x| Payload::Ack(x))
+            map!(i, parse_openvpn_msg_pack, Payload::Ack)
         }
         Opcode::P_DATA_V1 |
         Opcode::P_DATA_V2 => {
