@@ -8,7 +8,9 @@ documentation = "https://docs.rs/openvpn-parser"
 name = "openvpn-parser"
 version = "0.3.0"
 authors = ["Pierre Chifflier <chifflier@wzdftpd.net>"]
-categories = ["parsing"]
+readme = "README.md"
+categories = ["network-programming", "parser-implementations"]
+edition = "2018"
 
 [dependencies]
 nom = "4.0"
