@@ -11,6 +11,9 @@
 //! - OpenVPN wireshark parser
 
 use nom::*;
+use nom::combinator::rest;
+use nom::number::streaming::{be_u8, be_u16, be_u32, be_u64};
+use nom::error::ErrorKind;
 
 /// OpenVPN packet
 #[derive(Debug,PartialEq)]
@@ -108,15 +111,13 @@ pub fn parse_openvpn_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
         hdr:  parse_openvpn_header_tcp >>
         // length includes header (minus plen field)
         // substract 1 (opcode + key)
-              error_if!(hdr.plen == None, ErrorKind::Custom(128)) >>
+              error_if!(hdr.plen == None, ErrorKind::LengthValue) >>
         plen: value!(hdr.plen.unwrap()) >>
-              error_if!(plen < 2, ErrorKind::Custom(128)) >>
-        msg:  flat_map!(take!(plen-1),call!(parse_openvpn_msg_payload,hdr.opcode)) >>
+              error_if!(plen < 2, ErrorKind::LengthValue) >>
+        opc:  value!(hdr.opcode) >>
+        msg:  flat_map!(take!(plen-1), call!(parse_openvpn_msg_payload, opc)) >>
         (
-            OpenVPNPacket{
-                hdr:  hdr,
-                msg: msg,
-            }
+            OpenVPNPacket{ hdr, msg }
         )
     )
 }
@@ -127,7 +128,7 @@ pub fn parse_openvpn_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
 pub fn parse_openvpn_udp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
     do_parse!(i,
         hdr: parse_openvpn_header_udp >>
-        msg: call!(parse_openvpn_msg_payload,hdr.opcode) >>
+        msg: call!(parse_openvpn_msg_payload, hdr.opcode) >>
         (
             OpenVPNPacket{
                 hdr:  hdr,
@@ -142,7 +143,7 @@ pub fn parse_openvpn_header_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNHdr> {
     do_parse!(i,
         plen: be_u16 >>
         opk: bits!(
-            pair!(take_bits!(u8,5), take_bits!(u8,3))
+            pair!(take_bits!(5u8), take_bits!(3u8))
         ) >>
         (
             OpenVPNHdr{
@@ -157,7 +158,7 @@ pub fn parse_openvpn_header_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNHdr> {
 pub fn parse_openvpn_header_udp(i:&[u8]) -> IResult<&[u8],OpenVPNHdr> {
     do_parse!(i,
         opk: bits!(
-            pair!(take_bits!(u8,5), take_bits!(u8,3))
+            pair!(take_bits!(5u8), take_bits!(3u8))
         ) >>
         (
             OpenVPNHdr{
@@ -186,7 +187,7 @@ pub fn parse_openvpn_msg_payload(i:&[u8], msg_type:Opcode) -> IResult<&[u8],Payl
         Opcode::P_DATA_V2 => {
             map!(i, rest,|x| Payload::Data(PData{contents:x}))
         }
-        _ => Err(::nom::Err::Error(error_position!(i, ::nom::ErrorKind::Tag)))
+        _ => Err(::nom::Err::Error(error_position!(i, ErrorKind::Tag)))
     }
 }
 
