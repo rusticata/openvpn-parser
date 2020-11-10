@@ -131,8 +131,8 @@ pub fn parse_openvpn_udp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
         msg: call!(parse_openvpn_msg_payload, hdr.opcode) >>
         (
             OpenVPNPacket{
-                hdr:  hdr,
-                msg: msg,
+                hdr,
+                msg,
             }
         )
     )
@@ -205,7 +205,7 @@ pub fn parse_openvpn_msg_pcontrol(i:&[u8]) -> IResult<&[u8],PControl> {
         (
             PControl{
                 session_id: sid,
-                hmac: hmac,
+                hmac,
                 packet_id: pid,
                 net_time: tm,
                 msg_ar_len: arl,
@@ -230,7 +230,7 @@ pub fn parse_openvpn_msg_pack(i:&[u8]) -> IResult<&[u8],PAck> {
         (
             PAck{
                 session_id: sid,
-                hmac: hmac,
+                hmac,
                 packet_id: pid,
                 net_time: tm,
                 msg_ar_len: arl,
