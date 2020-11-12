@@ -105,7 +105,7 @@ pub struct PData<'a> {
 
 
 
-/// Parse an OpnVPM packet in TCP
+/// Parse an OpenVPN packet in TCP
 pub fn parse_openvpn_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
     do_parse!(i,
         hdr:  parse_openvpn_header_tcp >>
@@ -122,7 +122,7 @@ pub fn parse_openvpn_tcp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
     )
 }
 
-/// Parse an OpnVPM packet in UDP
+/// Parse an OpenVPN packet in UDP
 ///
 /// Note that this will consume the entire buffer
 pub fn parse_openvpn_udp(i:&[u8]) -> IResult<&[u8],OpenVPNPacket> {
