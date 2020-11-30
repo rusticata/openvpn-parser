@@ -1,21 +1,9 @@
-//! OpenVPN parser
-//!
-//! Writen in great pain, due to lack of specifications, and a number of fields
-//! defined in a very useless way, like "usually 16 or 20 bytes".
-//!
-//! Closest thing to specifications:
-//!
-//! - https://openvpn.net/index.php/open-source/documentation/security-overview.html
-//! - http://ipseclab.eit.lth.se/tiki-index.php?page=6.+OpenVPN
-//! - OpenVPN source code
-//! - OpenVPN wireshark parser
-
 use nom::bytes::streaming::take;
 use nom::combinator::{cond, map, map_parser, rest};
 use nom::error::{make_error, ErrorKind};
 use nom::multi::count;
 use nom::number::streaming::{be_u16, be_u32, be_u64, be_u8};
-use nom::*;
+use nom::{Err, IResult};
 use rusticata_macros::newtype_enum;
 
 /// OpenVPN packet
@@ -164,7 +152,7 @@ pub fn parse_openvpn_msg_payload(msg_type: Opcode) -> impl FnMut(&[u8]) -> IResu
         Opcode::P_DATA_V1 | Opcode::P_DATA_V2 => {
             map(rest, |x| Payload::Data(PData { contents: x }))(i)
         }
-        _ => Err(::nom::Err::Error(error_position!(i, ErrorKind::Tag))),
+        _ => Err(::nom::Err::Error(make_error(i, ErrorKind::Tag))),
     }
 }
 
