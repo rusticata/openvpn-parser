@@ -16,6 +16,7 @@ use nom::error::{make_error, ErrorKind};
 use nom::multi::count;
 use nom::number::streaming::{be_u16, be_u32, be_u64, be_u8};
 use nom::*;
+use rusticata_macros::newtype_enum;
 
 /// OpenVPN packet
 #[derive(Debug, PartialEq)]
