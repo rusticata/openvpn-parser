@@ -13,5 +13,5 @@ categories = ["network-programming", "parser-implementations"]
 edition = "2018"
 
 [dependencies]
-nom = "6.0"
-rusticata-macros = "3.0"
+nom = "7.0"
+rusticata-macros = "4.0"
